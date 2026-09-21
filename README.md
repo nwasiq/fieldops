@@ -8,7 +8,7 @@ It is the working material for a maintenance-engineer assessment. The assessment
 
 | Part | Tech | Port |
 |---|---|---|
-| `backend/` | Go 1.22+, Gin, GORM, PostgreSQL | 8080 |
+| `backend/` | Go 1.23+, Gin, GORM, PostgreSQL | 8080 |
 | `frontend/` | React 18, TypeScript, Vite, Vitest | 3000 |
 | `infra/` | Terraform (AWS: VPC, ASG, RDS, S3, CloudFront) — plans offline, never applied from this repo | — |
 | `scripts/` | CI lint scripts run by `.github/workflows/ci.yml` and `make lint` | — |
@@ -17,7 +17,7 @@ It is the working material for a maintenance-engineer assessment. The assessment
 
 ```bash
 cp .env.example .env
-docker compose up -d db          # PostgreSQL 16 on localhost:5432
+docker compose up -d db          # PostgreSQL 16 on localhost:5433 (so a Postgres you already run on 5432 is never shadowed)
 make backend                     # migrates + seeds, serves :8080
 make frontend                    # serves :3000, proxies /api to :8080
 make test                        # go test ./... + vitest run
