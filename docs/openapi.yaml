@@ -637,7 +637,7 @@ components:
       required: [site_id, scheduled_start, scheduled_end]
       properties:
         site_id: { type: integer }
-        technician_id: { type: integer, nullable: true, description: An active user with the technician role, or null }
+        technician_id: { type: integer, nullable: true, description: "An active user with the technician role, or null" }
         scheduled_start: { type: string, format: date-time, description: RFC3339 with offset }
         scheduled_end: { type: string, format: date-time, description: RFC3339 with offset; must be after scheduled_start }
     VisitResponse:
@@ -652,7 +652,7 @@ components:
       required: [date, scheduled, completed, cancelled, technicians]
       properties:
         date: { type: string, format: date }
-        scheduled: { type: integer, description: Every visit whose scheduled_start falls on the day, any status }
+        scheduled: { type: integer, description: "Every visit whose scheduled_start falls on the day, any status" }
         completed: { type: integer }
         cancelled: { type: integer }
         technicians:
