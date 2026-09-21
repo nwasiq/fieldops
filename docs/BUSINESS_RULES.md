@@ -20,6 +20,7 @@ The source of truth for what fieldops does. Tests that verify a rule cite it wit
 - **§3.4** Cancelling a visit keeps the row (status `cancelled`) and records who cancelled it and when. Only a `scheduled` or `in_progress` visit can be cancelled; cancelling a `completed` or `cancelled` one is rejected (409).
 - **§3.5** A `completed` or `cancelled` visit is closed: `PUT /api/visits/:id` on it is rejected (409). Status never changes through `PUT`; only cancel and clock actions move it.
 - **§3.6** A visit's site must be a live (not soft-deleted) site and its technician, when set, must be an active user with the `technician` role; otherwise the request is rejected (400). `scheduled_end` must be after `scheduled_start`, and both are RFC3339 instants with an offset.
+- **§3.7** A visit carries free-text `notes` (nullable). `PUT /api/visits/:id/notes` `{notes}` replaces them and returns the visit; whitespace is trimmed and a blank string clears them to `null`. Admins and dispatchers may write on any visit; a technician only on a visit assigned to them (403). Notes are writable at any status, closed visits included, because findings are written up after clock-out.
 
 ## §4 Clock events
 

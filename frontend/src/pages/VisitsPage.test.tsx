@@ -109,4 +109,23 @@ describe('VisitsPage', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('from and to are required');
   });
+
+  // rule: §3.7 — the list marks the visits that carry notes
+  it('marks the visits that have notes', async () => {
+    vi.spyOn(apiClient, 'getVisits').mockResolvedValue(
+      makeVisitList({
+        visits: [
+          makeVisit({ id: 7, notes: 'Key safe by the side door.' }),
+          makeVisit({ id: 8, site: { id: 3, name: 'Northgate Shopping Centre' }, notes: null }),
+        ],
+        total: 2,
+      }),
+    );
+    renderApp('/visits', dispatcher);
+
+    await screen.findByText('Northgate Shopping Centre');
+    const markers = screen.getAllByRole('img', { name: 'Has notes' });
+    expect(markers).toHaveLength(1);
+    expect(markers[0].closest('tr')).toHaveTextContent('Riverside Depot');
+  });
 });

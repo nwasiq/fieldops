@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -172,6 +173,38 @@ func (s *VisitService) Update(ctx context.Context, id uint, in VisitInput) (*mod
 		return nil, fmt.Errorf("update visit: %w", err)
 	}
 	return s.load(ctx, s.db, visit.ID)
+}
+
+// UpdateNotes replaces the free-text notes on a visit (§3.7). Whitespace is
+// trimmed and blank notes clear the column. Any status is writable, closed
+// visits included: findings are written up after the visit is clocked out.
+func (s *VisitService) UpdateNotes(ctx context.Context, id uint, notes string) (*models.Visit, error) {
+	var visit models.Visit
+	err := s.db.WithContext(ctx).First(&visit, id).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, notFound("visit")
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get visit: %w", err)
+	}
+	var value *string
+	if trimmed := strings.TrimSpace(notes); trimmed != "" {
+		value = &trimmed
+	}
+	var updated *models.Visit
+	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		tx.Model(&visit).Update("notes", value)
+		loaded, err := s.load(ctx, tx, id)
+		if err != nil {
+			return err
+		}
+		updated = loaded
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return updated, nil
 }
 
 // Cancel marks an open visit cancelled and records who did it and when (§3.4).

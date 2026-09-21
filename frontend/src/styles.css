@@ -160,12 +160,14 @@ main.page {
 
 input,
 select,
+textarea,
 button {
   font: inherit;
 }
 
 input,
-select {
+select,
+textarea {
   min-height: 40px;
   padding: 8px 10px;
   border: 1px solid var(--border);
@@ -176,6 +178,7 @@ select {
 
 input:focus,
 select:focus,
+textarea:focus,
 .btn:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
@@ -289,6 +292,52 @@ select:focus,
 .badge-cancelled {
   background: var(--neutral-bg);
   color: var(--neutral);
+}
+
+/* Notes */
+
+.notes {
+  white-space: pre-wrap;
+  margin: 0 0 16px;
+}
+
+.notes-form {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.notes-form textarea {
+  width: 100%;
+  min-height: 96px;
+  resize: vertical;
+}
+
+.note-marker {
+  margin-left: 6px;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.note-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.note-list .notes {
+  margin: 6px 0 0;
+}
+
+.note-meta {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--muted);
 }
 
 /* Data */
