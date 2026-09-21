@@ -1,0 +1,28 @@
+# Example values for infra/envs/staging. Every value here is a placeholder; none is real.
+# Real values go in staging.tfvars (gitignored) or TF_VAR_* — never in this file.
+
+env    = "staging"
+region = "eu-west-2"
+
+vpc_cidr             = "10.20.0.0/16"
+availability_zones   = ["eu-west-2a", "eu-west-2b"]
+public_subnet_cidrs  = ["10.20.0.0/24", "10.20.1.0/24"]
+private_subnet_cidrs = ["10.20.10.0/24", "10.20.11.0/24"]
+
+ami_id               = "ami-00000000000000000" # an Amazon Linux 2023 AMI for eu-west-2
+instance_type        = "t3.small"
+asg_min_size         = 1
+asg_max_size         = 2
+asg_desired_capacity = 1
+
+backend_image      = "000000000000.dkr.ecr.eu-west-2.amazonaws.com/fieldops-backend:example"
+ecr_repository_arn = "arn:aws:ecr:eu-west-2:000000000000:repository/fieldops-backend"
+health_check_path  = "/api/health"
+seed_on_boot       = false
+
+db_instance_class    = "db.t4g.micro"
+db_allocated_storage = 20
+db_username          = "fieldops"
+db_password          = "example-placeholder-replace-via-TF_VAR_db_password"
+
+frontend_bucket_name = "fieldops-staging-frontend-example"

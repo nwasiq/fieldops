@@ -1,0 +1,668 @@
+openapi: 3.0.3
+info:
+  title: fieldops API
+  version: 1.0.0
+  description: |
+    Field-service scheduling: sites, technicians, visits, clock events and a
+    daily report. Every response is wrapped in an envelope:
+    `{"success": true, "data": …}` or `{"success": false, "error": "…"}`.
+    Timestamps are RFC3339 in UTC; days are Europe/London `YYYY-MM-DD`.
+servers:
+  - url: http://localhost:8080
+security:
+  - bearerAuth: []
+tags:
+  - name: system
+  - name: auth
+  - name: users
+  - name: sites
+  - name: visits
+  - name: reports
+
+paths:
+  /api/health:
+    get:
+      tags: [system]
+      summary: Liveness probe
+      security: []
+      responses:
+        '200':
+          description: Service is up
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Success'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          status: { type: string, example: ok }
+
+  /api/auth/login:
+    post:
+      tags: [auth]
+      summary: Exchange credentials for a JWT (8 h)
+      description: A deactivated or soft-deleted user is refused with 401 (§1.2).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+      responses:
+        '200':
+          description: Token and user
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Success'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          token: { type: string }
+                          user: { $ref: '#/components/schemas/User' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/users:
+    get:
+      tags: [users]
+      summary: List users (admin, dispatcher)
+      description: Soft-deleted users are excluded. Licence numbers are never listed.
+      parameters:
+        - { name: role, in: query, schema: { $ref: '#/components/schemas/Role' } }
+        - { name: active, in: query, schema: { type: boolean } }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: One page of users
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Success'
+                  - type: object
+                    properties:
+                      data:
+                        allOf:
+                          - type: object
+                            properties:
+                              users:
+                                type: array
+                                items: { $ref: '#/components/schemas/User' }
+                          - $ref: '#/components/schemas/PageInfo'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [users]
+      summary: Create a user (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UserInput' }
+      responses:
+        '201':
+          description: Created user (without licence number)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/users/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [users]
+      summary: Get a user (admin, dispatcher)
+      description: Admins receive `licence_number` decrypted; dispatchers receive the object without it (§1.3).
+      responses:
+        '200':
+          description: The user
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [users]
+      summary: Update a user (admin)
+      description: |
+        `email`, `first_name`, `last_name` and `role` replace the stored values.
+        `is_active`, `licence_number` and `password` are applied only when present.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UserInput' }
+      responses:
+        '200':
+          description: Updated user
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+    delete:
+      tags: [users]
+      summary: Soft-delete a user (admin)
+      description: Historical attributions keep the user's name (§1.2). An admin cannot delete their own account (409).
+      responses:
+        '200':
+          description: Deleted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/IdResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/sites:
+    get:
+      tags: [sites]
+      summary: List sites (any role)
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: One page of sites
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Success'
+                  - type: object
+                    properties:
+                      data:
+                        allOf:
+                          - type: object
+                            properties:
+                              sites:
+                                type: array
+                                items: { $ref: '#/components/schemas/Site' }
+                          - $ref: '#/components/schemas/PageInfo'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [sites]
+      summary: Create a site (admin, dispatcher)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SiteInput' }
+      responses:
+        '201':
+          description: Created site
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SiteResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /api/sites/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [sites]
+      summary: Get a site (any role)
+      responses:
+        '200':
+          description: The site
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SiteResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [sites]
+      summary: Update a site (admin, dispatcher)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SiteInput' }
+      responses:
+        '200':
+          description: Updated site
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SiteResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [sites]
+      summary: Soft-delete a site (admin, dispatcher)
+      description: Past visits at the site remain readable with its name (§2.1).
+      responses:
+        '200':
+          description: Deleted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/IdResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/visits:
+    get:
+      tags: [visits]
+      summary: List visits in an inclusive run of Europe/London days
+      description: |
+        `from` and `to` are required (400 otherwise). A visit is on day D when
+        its `scheduled_start` falls on Europe/London day D (§3.2, §3.3).
+        Technicians only ever receive their own visits; `technician_id` is
+        ignored for them. `page_size` is clamped to 100 and the effective value echoed.
+      parameters:
+        - { name: from, in: query, required: true, schema: { type: string, format: date }, example: '2026-07-14' }
+        - { name: to, in: query, required: true, schema: { type: string, format: date }, example: '2026-07-14' }
+        - { name: technician_id, in: query, schema: { type: integer } }
+        - { name: status, in: query, schema: { $ref: '#/components/schemas/VisitStatus' } }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: One page of visits
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Success'
+                  - type: object
+                    properties:
+                      data:
+                        allOf:
+                          - type: object
+                            properties:
+                              visits:
+                                type: array
+                                items: { $ref: '#/components/schemas/Visit' }
+                          - $ref: '#/components/schemas/PageInfo'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [visits]
+      summary: Schedule a visit (admin, dispatcher)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/VisitInput' }
+      responses:
+        '201':
+          description: Created visit in status `scheduled`
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VisitResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /api/visits/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [visits]
+      summary: Get a visit with its clock events
+      description: A technician gets 403 on a visit not assigned to them.
+      responses:
+        '200':
+          description: The visit
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VisitResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [visits]
+      summary: Reschedule or reassign an open visit (admin, dispatcher)
+      description: Status is not editable here. A completed or cancelled visit is closed to edits (409, §3.5).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/VisitInput' }
+      responses:
+        '200':
+          description: Updated visit
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VisitResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/visits/{id}/cancel:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    post:
+      tags: [visits]
+      summary: Cancel an open visit (admin, dispatcher)
+      description: Keeps the row and records `cancelled_by_id` and `cancelled_at` (§3.4). Already completed or cancelled → 409.
+      responses:
+        '200':
+          description: Cancelled visit
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VisitResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/visits/{id}/clock-in:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    post:
+      tags: [visits]
+      summary: Clock in
+      description: |
+        Moves a `scheduled` visit to `in_progress` and records a clock event
+        with `occurred_at` = now and `recorded_by_id` = the caller (§4.1–4.3).
+        A technician may only clock their own visit (403). A second clock-in,
+        or a clock-in on a completed or cancelled visit, is 409.
+      responses:
+        '200':
+          description: Visit now in progress
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VisitResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/visits/{id}/clock-out:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    post:
+      tags: [visits]
+      summary: Clock out
+      description: Moves an `in_progress` visit to `completed`. Clock-out without a clock-in is 409 (§4.2).
+      responses:
+        '200':
+          description: Visit now completed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VisitResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/reports/daily:
+    get:
+      tags: [reports]
+      summary: Daily report for one Europe/London day (admin, dispatcher)
+      description: |
+        `scheduled` is the day's whole book (every status); `completed` and
+        `cancelled` are the subsets in those states. A technician with visits
+        that day is listed by name even if since deactivated or soft-deleted (§5.2).
+        `hours_clocked` sums clock-in → clock-out pairs; an open clock-in adds nothing.
+      parameters:
+        - { name: date, in: query, required: true, schema: { type: string, format: date }, example: '2026-07-14' }
+      responses:
+        '200':
+          description: The report
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Success'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/DailyReport' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema: { type: integer, minimum: 1 }
+    Page:
+      name: page
+      in: query
+      schema: { type: integer, minimum: 1, default: 1 }
+    PageSize:
+      name: page_size
+      in: query
+      description: Clamped to 100; the effective value is echoed as `page_size`.
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+
+  responses:
+    BadRequest:
+      description: Invalid input
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Unauthorized:
+      description: Missing, invalid or expired token; or refused login
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Forbidden:
+      description: Wrong role, or a technician touching another's visit
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    NotFound:
+      description: No such resource (soft-deleted rows count as missing)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Conflict:
+      description: The resource is not in a state that allows this action
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+
+  schemas:
+    Success:
+      type: object
+      required: [success, data]
+      properties:
+        success: { type: boolean, enum: [true] }
+    Error:
+      type: object
+      required: [success, error]
+      properties:
+        success: { type: boolean, enum: [false] }
+        error: { type: string }
+    PageInfo:
+      type: object
+      required: [total, page, page_size, total_pages]
+      properties:
+        total: { type: integer }
+        page: { type: integer }
+        page_size: { type: integer, description: The effective page size after clamping }
+        total_pages: { type: integer }
+    IdResponse:
+      allOf:
+        - $ref: '#/components/schemas/Success'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                id: { type: integer }
+
+    Role:
+      type: string
+      enum: [admin, dispatcher, technician]
+    VisitStatus:
+      type: string
+      enum: [scheduled, in_progress, completed, cancelled]
+    ClockKind:
+      type: string
+      enum: [in, out]
+
+    User:
+      type: object
+      required: [id, email, first_name, last_name, role, is_active, created_at]
+      properties:
+        id: { type: integer }
+        email: { type: string, format: email }
+        first_name: { type: string }
+        last_name: { type: string }
+        role: { $ref: '#/components/schemas/Role' }
+        is_active: { type: boolean }
+        licence_number:
+          type: string
+          description: Present only on `GET /api/users/{id}` for admins (§1.3).
+        created_at: { type: string, format: date-time }
+    UserInput:
+      type: object
+      required: [email, first_name, last_name, role]
+      properties:
+        email: { type: string, format: email }
+        first_name: { type: string }
+        last_name: { type: string }
+        role: { $ref: '#/components/schemas/Role' }
+        is_active: { type: boolean, description: Defaults to true on create; unchanged when omitted on update }
+        licence_number: { type: string, description: Stored encrypted; unchanged when omitted on update }
+        password: { type: string, minLength: 8, description: Required on create; unchanged when omitted on update }
+    UserResponse:
+      allOf:
+        - $ref: '#/components/schemas/Success'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/User' }
+    UserRef:
+      type: object
+      required: [id, first_name, last_name]
+      properties:
+        id: { type: integer }
+        first_name: { type: string }
+        last_name: { type: string }
+
+    Site:
+      type: object
+      required: [id, name, address, contact_phone]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        address: { type: string }
+        contact_phone: { type: string }
+    SiteInput:
+      type: object
+      required: [name, address]
+      properties:
+        name: { type: string }
+        address: { type: string }
+        contact_phone: { type: string }
+    SiteResponse:
+      allOf:
+        - $ref: '#/components/schemas/Success'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/Site' }
+    SiteRef:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+
+    ClockEvent:
+      type: object
+      required: [id, kind, occurred_at, recorded_by_id, recorded_by]
+      properties:
+        id: { type: integer }
+        kind: { $ref: '#/components/schemas/ClockKind' }
+        occurred_at: { type: string, format: date-time }
+        recorded_by_id: { type: integer }
+        recorded_by:
+          allOf:
+            - $ref: '#/components/schemas/UserRef'
+          description: Resolved even when the user has since been soft-deleted (§4.3).
+
+    Visit:
+      type: object
+      required: [id, site_id, site, technician_id, technician, scheduled_start, scheduled_end, status, cancelled_by_id, cancelled_at, clock_events]
+      properties:
+        id: { type: integer }
+        site_id: { type: integer }
+        site: { $ref: '#/components/schemas/SiteRef' }
+        technician_id: { type: integer, nullable: true }
+        technician:
+          allOf:
+            - $ref: '#/components/schemas/UserRef'
+          nullable: true
+          description: Resolved even when the technician has since been soft-deleted.
+        scheduled_start: { type: string, format: date-time, description: RFC3339 UTC }
+        scheduled_end: { type: string, format: date-time, description: RFC3339 UTC }
+        status: { $ref: '#/components/schemas/VisitStatus' }
+        cancelled_by_id: { type: integer, nullable: true }
+        cancelled_at: { type: string, format: date-time, nullable: true }
+        clock_events:
+          type: array
+          items: { $ref: '#/components/schemas/ClockEvent' }
+    VisitInput:
+      type: object
+      required: [site_id, scheduled_start, scheduled_end]
+      properties:
+        site_id: { type: integer }
+        technician_id: { type: integer, nullable: true, description: An active user with the technician role, or null }
+        scheduled_start: { type: string, format: date-time, description: RFC3339 with offset }
+        scheduled_end: { type: string, format: date-time, description: RFC3339 with offset; must be after scheduled_start }
+    VisitResponse:
+      allOf:
+        - $ref: '#/components/schemas/Success'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/Visit' }
+
+    DailyReport:
+      type: object
+      required: [date, scheduled, completed, cancelled, technicians]
+      properties:
+        date: { type: string, format: date }
+        scheduled: { type: integer, description: Every visit whose scheduled_start falls on the day, any status }
+        completed: { type: integer }
+        cancelled: { type: integer }
+        technicians:
+          type: array
+          items:
+            type: object
+            required: [technician_id, name, visits, completed, hours_clocked]
+            properties:
+              technician_id: { type: integer }
+              name: { type: string }
+              visits: { type: integer }
+              completed: { type: integer }
+              hours_clocked: { type: number, format: double }

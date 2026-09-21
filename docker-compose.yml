@@ -1,0 +1,49 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: fieldops
+      POSTGRES_PASSWORD: fieldops
+      POSTGRES_DB: fieldops
+    ports:
+      - "5432:5432"
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fieldops"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # `docker compose --profile app up` runs the whole stack. Plain `docker compose up -d db`
+  # (the quick start) does not start these two.
+  backend:
+    profiles: ["app"]
+    build:
+      context: ./backend
+      dockerfile: Dockerfile # owned by backend/; see infra/README.md
+    env_file: .env
+    environment:
+      # .env points at localhost for `make backend`; inside the compose network the database is `db`.
+      DATABASE_URL: postgres://fieldops:fieldops@db:5432/fieldops?sslmode=disable
+      PORT: "8080"
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    profiles: ["app"]
+    build:
+      context: ./frontend
+      dockerfile: ../infra/docker/frontend.Dockerfile
+    volumes:
+      - ./infra/docker/frontend.nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  dbdata:

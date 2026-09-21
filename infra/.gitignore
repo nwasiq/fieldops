@@ -1,0 +1,5 @@
+# Real variable files and the apply-path override are never committed; the .example is.
+*.tfvars
+!*.tfvars.example
+*_override.tf
+*.tfplan

@@ -1,0 +1,87 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# One run per ref; a newer push on the same branch cancels the older run.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          cache-dependency-path: backend/go.sum
+      - run: go vet ./...
+      - run: go test ./...
+      # Timezone independence is a requirement (docs/CONVENTIONS.md §5): the same suite must pass
+      # with the host clock nine hours ahead of London. -count=1 defeats the test cache, which
+      # does not key on TZ and would otherwise replay the previous step's results.
+      - run: TZ=Asia/Tokyo go test -count=1 ./...
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npx tsc --noEmit
+      # Same requirement as the backend: rendering must not depend on the browser's (here the
+      # runner's) timezone, so the suite runs under a zone far from London.
+      - run: TZ=Asia/Tokyo npx vitest run
+      - run: npm run build
+
+  lint:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          for s in scripts/check-*.sh; do
+            echo "== $s"
+            bash "$s" || exit 1
+          done
+
+  terraform:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra/envs/staging
+    env:
+      TF_IN_AUTOMATION: "1"
+      # The provider is configured with placeholder keys and every credential probe skipped
+      # (infra/envs/staging/providers.tf); this only stops the SDK waiting on IMDS.
+      AWS_EC2_METADATA_DISABLED: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.8"
+          terraform_wrapper: false
+      - run: terraform fmt -check -recursive
+        working-directory: infra
+      - run: terraform init -input=false
+      - run: terraform validate
+      - run: terraform plan -input=false -var-file=staging.tfvars.example
