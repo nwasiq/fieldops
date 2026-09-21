@@ -620,6 +620,7 @@ components:
         site: { $ref: '#/components/schemas/SiteRef' }
         technician_id: { type: integer, nullable: true }
         technician:
+          type: object
           allOf:
             - $ref: '#/components/schemas/UserRef'
           nullable: true
