@@ -18,6 +18,11 @@ export function canClock(user: User, visit: Visit): boolean {
   return isStaff(user) || (visit.technician_id !== null && visit.technician_id === user.id);
 }
 
+/** The people who may clock a visit may also write on it (§3.7). */
+export function canEditNotes(user: User, visit: Visit): boolean {
+  return canClock(user, visit);
+}
+
 export function clockInAllowed(status: VisitStatus): boolean {
   return status === 'scheduled';
 }

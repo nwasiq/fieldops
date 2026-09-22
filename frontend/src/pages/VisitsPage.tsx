@@ -145,6 +145,11 @@ export function VisitsPage() {
                 <tr key={visit.id}>
                   <td data-label="Site">
                     <Link to={`/visits/${visit.id}`}>{visit.site.name}</Link>
+                    {visit.notes && (
+                      <span className="note-marker" role="img" aria-label="Has notes" title="Has notes">
+                        ✎
+                      </span>
+                    )}
                   </td>
                   <td data-label="Technician">{technicianName(visit.technician)}</td>
                   <td data-label="Scheduled">{formatRangeUK(visit.scheduled_start, visit.scheduled_end)}</td>

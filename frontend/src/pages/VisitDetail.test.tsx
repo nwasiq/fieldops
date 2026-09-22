@@ -105,4 +105,37 @@ describe('VisitDetailPage', () => {
     expect(await screen.findByText('21 Sep 2026, 08:00')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Cancel visit' })).toBeDisabled();
   });
+
+  // rule: §3.7 — the assigned technician may write notes; the page saves through the API and reloads the visit
+  it('saves notes and reloads the visit', async () => {
+    const getVisit = vi
+      .spyOn(apiClient, 'getVisit')
+      .mockResolvedValueOnce(makeVisit({ notes: null }))
+      .mockResolvedValueOnce(makeVisit({ notes: 'Key safe by the side door.' }));
+    const updateVisitNotes = vi
+      .spyOn(apiClient, 'updateVisitNotes')
+      .mockResolvedValue(makeVisit({ notes: 'Key safe by the side door.' }));
+    renderApp('/visits/7', assignedTech);
+
+    const box = await screen.findByLabelText('Notes');
+    expect(screen.getByRole('button', { name: 'Save notes' })).toBeDisabled();
+    fireEvent.change(box, { target: { value: 'Key safe by the side door.' } });
+    expect(screen.getByRole('button', { name: 'Save notes' })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Save notes' }));
+
+    await waitFor(() => expect(getVisit).toHaveBeenCalledTimes(2));
+    expect(updateVisitNotes).toHaveBeenCalledWith(7, 'Key safe by the side door.');
+    expect(screen.getByLabelText('Notes')).toHaveValue('Key safe by the side door.');
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Save notes' })).toBeDisabled());
+  });
+
+  // rule: §3.7 — a technician who is not assigned reads the notes but cannot edit them
+  it('shows notes read-only to a technician who is not assigned', async () => {
+    vi.spyOn(apiClient, 'getVisit').mockResolvedValue(makeVisit({ technician_id: 3, notes: 'Ring the bell twice.' }));
+    renderApp('/visits/7', otherTech);
+
+    expect(await screen.findByText('Ring the bell twice.')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Notes')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Save notes' })).not.toBeInTheDocument();
+  });
 });

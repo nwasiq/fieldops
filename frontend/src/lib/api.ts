@@ -96,6 +96,11 @@ export class ApiClient {
     });
   }
 
+
+  private patch<T>(path: string, payload: unknown): Promise<T> {
+    return this.request<T>(path, { method: 'PATCH', body: JSON.stringify(payload) });
+  }
+
   login(email: string, password: string): Promise<LoginResponse> {
     return this.post<LoginResponse>('/auth/login', { email, password });
   }
@@ -118,6 +123,10 @@ export class ApiClient {
 
   cancelVisit(id: number): Promise<Visit> {
     return this.post<Visit>(`/visits/${id}/cancel`);
+  }
+
+  updateVisitNotes(id: number, notes: string): Promise<Visit> {
+    return this.patch<Visit>(`/visits/${id}/notes`, { notes });
   }
 
   getUsers(params: UserListParams = {}): Promise<UserListResponse> {

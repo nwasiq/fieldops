@@ -1,14 +1,16 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ErrorMessage } from '../components/ErrorMessage';
+import { RecentNotes } from '../components/RecentNotes';
 import { StatusBadge } from '../components/StatusBadge';
 import { apiClient, describeError } from '../lib/api';
 import { useCurrentUser } from '../lib/auth';
-import { formatDateTimeUK, formatRangeUK } from '../lib/dateFormat';
+import { formatDateTimeUK, formatRangeUK, ukDatePart } from '../lib/dateFormat';
 import { recordedByName, technicianName } from '../lib/names';
 import {
   canCancelVisits,
   canClock,
+  canEditNotes,
   cancelAllowed,
   clockInAllowed,
   clockOutAllowed,
@@ -26,6 +28,7 @@ export function VisitDetailPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [notesDraft, setNotesDraft] = useState('');
 
   const load = useCallback(async () => {
     try {
@@ -39,6 +42,11 @@ export function VisitDetailPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const savedNotes = visit?.notes ?? '';
+  useEffect(() => {
+    setNotesDraft(savedNotes);
+  }, [savedNotes]);
 
   const perform = async (action: () => Promise<Visit>) => {
     setBusy(true);
@@ -58,6 +66,11 @@ export function VisitDetailPage() {
     void perform(() => apiClient.cancelVisit(visitId));
   };
 
+  const saveNotes = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    void perform(() => apiClient.updateVisitNotes(visitId, notesDraft));
+  };
+
   if (loadError && !visit) {
     return (
       <>
@@ -71,6 +84,8 @@ export function VisitDetailPage() {
 
   const showClock = canClock(user, visit);
   const showCancel = canCancelVisits(user);
+  const showNotesEditor = canEditNotes(user, visit);
+  const notesDirty = notesDraft !== savedNotes;
 
   return (
     <>
@@ -135,6 +150,35 @@ export function VisitDetailPage() {
         </section>
       )}
       <ErrorMessage message={actionError} />
+
+      <h2 id="notes-heading">Notes</h2>
+      {showNotesEditor ? (
+        <form className="notes-form" onSubmit={saveNotes}>
+          <textarea
+            aria-labelledby="notes-heading"
+            rows={4}
+            placeholder="Access instructions, what was found on site…"
+            value={notesDraft}
+            disabled={busy}
+            onChange={(e) => setNotesDraft(e.target.value)}
+          />
+          <button type="submit" className="btn btn-primary" disabled={busy || !notesDirty}>
+            Save notes
+          </button>
+        </form>
+      ) : visit.notes ? (
+        <p className="notes card">{visit.notes}</p>
+      ) : (
+        <p className="muted">No notes.</p>
+      )}
+
+      {visit.technician_id !== null && (
+        <RecentNotes
+          technicianId={visit.technician_id}
+          day={ukDatePart(visit.scheduled_start)}
+          excludeVisitId={visit.id}
+        />
+      )}
 
       <h2>Clock events</h2>
       {visit.clock_events.length === 0 ? (

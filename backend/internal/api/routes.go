@@ -42,6 +42,7 @@ func RegisterRoutes(r *gin.Engine, h *Handlers, authenticate, audit gin.HandlerF
 	visits := api.Group("/visits")
 	visits.GET("/:id", h.GetVisit)
 	visits.PUT("/:id", scheduling, h.UpdateVisit)
+	visits.PATCH("/:id/notes", h.UpdateVisitNotes)
 	visits.POST("/:id/cancel", scheduling, h.CancelVisit)
 	visits.POST("/:id/clock-in", h.ClockIn)
 	visits.POST("/:id/clock-out", h.ClockOut)

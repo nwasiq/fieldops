@@ -20,6 +20,10 @@ type visitRequest struct {
 	ScheduledEnd   string `json:"scheduled_end"`
 }
 
+type visitNotesRequest struct {
+	Notes *string `json:"notes"`
+}
+
 func (r visitRequest) input() (services.VisitInput, error) {
 	start, err := parseInstant(r.ScheduledStart)
 	if err != nil {
@@ -121,6 +125,39 @@ func (h *Handlers) UpdateVisit(c *gin.Context) {
 		return
 	}
 	visit, err := h.visits.Update(c.Request.Context(), id, in)
+	if err != nil {
+		fail(c, h.logger, err)
+		return
+	}
+	respond(c, http.StatusOK, newVisitView(visit))
+}
+
+// UpdateVisitNotes replaces the notes on a visit (§3.7). Admins and
+// dispatchers write on any visit; anyone else must be able to read it, which
+// for a technician means it is assigned to them.
+func (h *Handlers) UpdateVisitNotes(c *gin.Context) {
+	id, err := pathID(c)
+	if err != nil {
+		respondError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	var req visitNotesRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		respondError(c, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.Notes == nil {
+		respondError(c, http.StatusBadRequest, "notes is required")
+		return
+	}
+	actor := actorFrom(c)
+	if actor.Role != models.RoleAdmin && actor.Role != "dispatcher" {
+		if _, err := h.visits.Get(c.Request.Context(), actor, id); err != nil {
+			fail(c, h.logger, err)
+			return
+		}
+	}
+	visit, err := h.visits.UpdateNotes(c.Request.Context(), id, *req.Notes)
 	if err != nil {
 		fail(c, h.logger, err)
 		return

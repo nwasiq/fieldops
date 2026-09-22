@@ -44,6 +44,7 @@ export interface Visit {
   scheduled_start: string;
   scheduled_end: string;
   status: VisitStatus;
+  notes: string | null;
   cancelled_by_id: number | null;
   cancelled_at: string | null;
   clock_events: ClockEvent[];

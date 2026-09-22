@@ -42,7 +42,7 @@ src/
 │   ├── auth.tsx           AuthProvider / useAuth / useCurrentUser
 │   ├── permissions.ts     who may clock, cancel, see reports; visit state machine gates
 │   └── names.ts           "First Last", "Unassigned", "Unknown user"
-├── components/            Header, Layout, RequireAuth, StatusBadge, Pager, ErrorMessage
+├── components/            Header, Layout, RequireAuth, StatusBadge, Pager, ErrorMessage, RecentNotes
 ├── pages/                 LoginPage, VisitsPage, VisitDetailPage, DailyReportPage (+ tests)
 └── test/                  setup, fixtures, renderApp
 ```
@@ -58,3 +58,4 @@ src/
 - Lists are filtered server-side: every change to the date range, status or technician filter refetches with those params and the pager renders from the `page_size` / `total_pages` the server echoes (rule 11).
 - Clock in / clock out appear only for users who may use them (§4.1) and are enabled by the visit's status (§4.2); the server's 409 message is shown inline, verbatim.
 - A clock event whose recorder has been deleted renders "Unknown user" and nothing else on the page changes (§4.3).
+- Notes on a visit are editable by the same people who may clock it (§3.7); everyone else reads them. The visits list marks the rows that carry notes, and the detail page lists the technician's other noted visits from the same day.

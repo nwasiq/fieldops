@@ -357,6 +357,32 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
 
+  /api/visits/{id}/notes:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    patch:
+      tags: [visits]
+      summary: Replace the notes on a visit
+      description: |
+        Admins and dispatchers may write on any visit; a technician only on a
+        visit assigned to them (403). Notes are trimmed and a blank string
+        clears them to `null`. Any status is writable, closed visits included (§3.7).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/VisitNotesInput' }
+      responses:
+        '200':
+          description: The visit with its new notes
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VisitResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
   /api/visits/{id}/cancel:
     parameters:
       - $ref: '#/components/parameters/Id'
@@ -613,7 +639,7 @@ components:
 
     Visit:
       type: object
-      required: [id, site_id, site, technician_id, technician, scheduled_start, scheduled_end, status, cancelled_by_id, cancelled_at, clock_events]
+      required: [id, site_id, site, technician_id, technician, scheduled_start, scheduled_end, status, notes, cancelled_by_id, cancelled_at, clock_events]
       properties:
         id: { type: integer }
         site_id: { type: integer }
@@ -628,6 +654,7 @@ components:
         scheduled_start: { type: string, format: date-time, description: RFC3339 UTC }
         scheduled_end: { type: string, format: date-time, description: RFC3339 UTC }
         status: { $ref: '#/components/schemas/VisitStatus' }
+        notes: { type: string, nullable: true, description: Free-text notes or null }
         cancelled_by_id: { type: integer, nullable: true }
         cancelled_at: { type: string, format: date-time, nullable: true }
         clock_events:
@@ -641,6 +668,11 @@ components:
         technician_id: { type: integer, nullable: true, description: "An active user with the technician role, or null" }
         scheduled_start: { type: string, format: date-time, description: RFC3339 with offset }
         scheduled_end: { type: string, format: date-time, description: RFC3339 with offset; must be after scheduled_start }
+    VisitNotesInput:
+      type: object
+      required: [notes]
+      properties:
+        notes: { type: string, description: Replaces the notes; a blank string clears them }
     VisitResponse:
       allOf:
         - $ref: '#/components/schemas/Success'
