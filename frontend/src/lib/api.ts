@@ -1,12 +1,12 @@
 import type {
   DailyReport,
   LoginResponse,
-  Site,
-  User,
   UserListParams,
   Visit,
   VisitListParams,
   VisitListResponse,
+  UserListResponse,
+  SiteListResponse,
 } from '../types';
 import { clearSession, getToken } from './session';
 
@@ -120,12 +120,12 @@ export class ApiClient {
     return this.post<Visit>(`/visits/${id}/cancel`);
   }
 
-  getUsers(params: UserListParams = {}): Promise<User[]> {
-    return this.request<User[]>(`/users${queryString({ ...params })}`);
+  getUsers(params: UserListParams = {}): Promise<UserListResponse> {
+    return this.request<UserListResponse>(`/users${queryString({ ...params })}`);
   }
 
-  getSites(): Promise<Site[]> {
-    return this.request<Site[]>('/sites');
+  getSites(): Promise<SiteListResponse> {
+    return this.request<SiteListResponse>('/sites');
   }
 
   getDailyReport(date: string): Promise<DailyReport> {

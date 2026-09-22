@@ -70,7 +70,7 @@ export function VisitsPage() {
     if (!staff) return;
     apiClient
       .getUsers({ role: 'technician' })
-      .then(setTechnicians)
+      .then((response) => setTechnicians(response.users))
       .catch(() => setTechnicians([]));
   }, [staff]);
 

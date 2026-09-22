@@ -30,9 +30,10 @@ describe('ApiClient.request envelope handling', () => {
 
   it('unwraps {success, data} and returns data', async () => {
     const site = { id: 1, name: 'Depot', address: '1 Dock Rd', contact_phone: '0161 000 0000' };
-    fetchMock.mockResolvedValue(jsonResponse(200, { success: true, data: [site] }));
+    const page = { sites: [site], total: 1, page: 1, page_size: 20, total_pages: 1 };
+    fetchMock.mockResolvedValue(jsonResponse(200, { success: true, data: page }));
 
-    await expect(client.getSites()).resolves.toEqual([site]);
+    await expect(client.getSites()).resolves.toEqual(page);
     expect(fetchMock).toHaveBeenCalledWith('/api/sites', expect.objectContaining({ headers: expect.any(Object) }));
   });
 

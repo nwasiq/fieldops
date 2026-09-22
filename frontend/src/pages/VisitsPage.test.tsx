@@ -9,10 +9,16 @@ describe('VisitsPage', () => {
   const dispatcher = makeUser({ id: 2, role: 'dispatcher', first_name: 'Dee', last_name: 'Patch' });
 
   beforeEach(() => {
-    vi.spyOn(apiClient, 'getUsers').mockResolvedValue([
-      makeUser({ id: 3, first_name: 'Tess', last_name: 'Turner' }),
-      makeUser({ id: 4, first_name: 'Omar', last_name: 'Bell' }),
-    ]);
+    vi.spyOn(apiClient, 'getUsers').mockResolvedValue({
+      users: [
+        makeUser({ id: 3, first_name: 'Tess', last_name: 'Turner' }),
+        makeUser({ id: 4, first_name: 'Omar', last_name: 'Bell' }),
+      ],
+      total: 2,
+      page: 1,
+      page_size: 20,
+      total_pages: 1,
+    });
   });
 
   it('fetches today (London day) to today by default, server-side', async () => {
