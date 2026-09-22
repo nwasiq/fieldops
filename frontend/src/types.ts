@@ -88,6 +88,22 @@ export interface VisitListResponse {
   total_pages: number;
 }
 
+export interface UserListResponse {
+  users: User[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+}
+
+export interface SiteListResponse {
+  sites: Site[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+}
+
 export interface UserListParams {
   role?: Role;
   active?: boolean;

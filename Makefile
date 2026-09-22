@@ -9,7 +9,7 @@ frontend:
 test: test-backend test-frontend
 
 test-backend:
-	cd backend && go test ./...
+	cd backend && go test -count=1 ./...
 
 test-frontend:
 	cd frontend && npx vitest run
@@ -30,4 +30,4 @@ db-restore:
 	@test -n "$(FILE)" || (echo "usage: make db-restore FILE=backups/<file>.sql" && exit 1)
 	docker compose exec -T db psql -U fieldops -c 'DROP DATABASE IF EXISTS fieldops_restore' -c 'CREATE DATABASE fieldops_restore'
 	docker compose exec -T db psql -U fieldops fieldops_restore < $(FILE)
-	docker compose exec -T db psql -U fieldops fieldops_restore -c "SELECT relname AS table, n_live_tup AS rows FROM pg_stat_user_tables ORDER BY 1"
+	docker compose exec -T db psql -U fieldops fieldops_restore -c "SELECT 'users' AS table, count(*) AS rows FROM users UNION ALL SELECT 'sites', count(*) FROM sites UNION ALL SELECT 'visits', count(*) FROM visits UNION ALL SELECT 'clock_events', count(*) FROM clock_events UNION ALL SELECT 'audit_logs', count(*) FROM audit_logs ORDER BY 1"
